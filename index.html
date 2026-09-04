@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Grade Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="glass">
+      <div class="header-left">
+        <h1 data-i18n="appTitle"><span class="accent">Student</span> Grade Analyzer</h1>
+        <p class="subtitle" data-i18n="appSubtitle">Privacy-first performance dashboard</p>
+      </div>
+      <div class="header-right">
+        <button class="lang-toggle" id="langToggle" aria-label="Toggle language">EN / AR</button>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+          <span class="icon-sun">&#9728;</span>
+          <span class="icon-moon">&#9790;</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="main-grid">
+
+      <section class="panel data-entry glass">
+        <h2 data-i18n="enterGrades">Enter Grades</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="studentName" data-i18n="labelStudent">Student Name</label>
+            <input type="text" id="studentName" data-i18n-placeholder="phStudent" placeholder="e.g. Alex Johnson">
+          </div>
+          <div class="form-group">
+            <label for="subjectName" data-i18n="labelSubject">Subject</label>
+            <input type="text" id="subjectName" data-i18n-placeholder="phSubject" placeholder="e.g. Mathematics">
+          </div>
+          <div class="form-group">
+            <label for="gradeInput" data-i18n="labelGrade">Grade (0-100)</label>
+            <input type="number" id="gradeInput" min="0" max="100" step="0.1" data-i18n-placeholder="phGrade" placeholder="e.g. 85.5">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="addEntryBtn" data-i18n="addEntry">+ Add Entry</button>
+          <button class="btn btn-danger" id="clearAllBtn" data-i18n="clearAll">Clear All</button>
+        </div>
+
+        <div class="grade-entries-wrapper">
+          <div id="gradeEntries"></div>
+        </div>
+
+        <div class="import-section">
+          <div class="import-block">
+            <label for="dataPaste" data-i18n="labelPaste">Or paste CSV / JSON data:</label>
+            <textarea id="dataPaste" rows="3" data-i18n-placeholder="phPaste" placeholder="CSV: name,subject,grade&#10;Alex,Math,85&#10;Sarah,Science,92"></textarea>
+            <button class="btn btn-secondary" id="importBtn" data-i18n="importData">Import Data</button>
+          </div>
+
+          <div class="import-block file-import-block">
+            <label data-i18n="labelFileImport">Or import from file:</label>
+            <div class="file-inputs">
+              <label class="btn btn-file" for="pdfFileInput">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+                <span data-i18n="importPDF">Import PDF</span>
+                <input type="file" id="pdfFileInput" accept=".pdf" style="display:none">
+              </label>
+              <label class="btn btn-file" for="excelFileInput">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7V7zm6 0h4v2h-4V7zm0 4h4v2h-4v-2zM7 13h4v4H7v-4zm6 2h4v2h-4v-2z"/></svg>
+                <span data-i18n="importExcel">Import Excel</span>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+              </label>
+            </div>
+            <p class="file-hint" data-i18n="fileHint">Files are parsed locally. Nothing leaves your device.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel analytics glass">
+        <h2 data-i18n="classStats">Class Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statAvg">--</div>
+            <div class="stat-label" data-i18n="statAvg">Average</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statHighest">--</div>
+            <div class="stat-label" data-i18n="statHighest">Highest</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statLowest">--</div>
+            <div class="stat-label" data-i18n="statLowest">Lowest</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statPass">--</div>
+            <div class="stat-label" data-i18n="statPass">Pass Rate</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statGPA">--</div>
+            <div class="stat-label" data-i18n="statGPA">GPA</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statStd">--</div>
+            <div class="stat-label" data-i18n="statStd">Std Dev</div>
+          </div>
+        </div>
+        <div id="feedbackBadges" class="feedback-badges"></div>
+      </section>
+
+      <section class="panel charts-panel glass">
+        <h2 data-i18n="perfDiagrams">Performance Diagrams</h2>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3 data-i18n="chartSubject">Subject Scores</h3>
+            <canvas id="barChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3 data-i18n="chartDistribution">Grade Distribution</h3>
+            <canvas id="doughnutChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3 data-i18n="chartRadar">Competency Radar</h3>
+            <canvas id="radarChart"></canvas>
+          </div>
+        </div>
+        <div class="export-actions">
+          <button class="btn btn-primary" id="exportPNGBtn" data-i18n="downloadPNG">Download PNG</button>
+          <button class="btn btn-secondary" id="exportPDFBtn" data-i18n="downloadPDF">Download PDF</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
