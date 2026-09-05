@@ -213,6 +213,21 @@
           <button id="btnSubmitQuiz" class="btn-primary mt-4 w-full" data-i18n="submitQuiz">Submit Quiz</button>
         </div>
       </div>
+
+      <!-- ===== Sheet selector modal (multi-sheet Excel) ===== -->
+      <div id="sheetModal" class="fixed inset-0 z-[95] bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold" data-i18n="sheetSelectTitle">Select Sheet(s) to Import</h3>
+            <button id="btnCloseSheet" class="text-2xl leading-none">&times;</button>
+          </div>
+          <div class="space-y-1 mb-5 max-h-[55vh] overflow-y-auto" id="sheetList"></div>
+          <div class="flex gap-2">
+            <button id="btnConfirmSheet" class="btn-primary flex-1" data-i18n="sheetImport">Import</button>
+            <button id="btnCancelSheet" class="btn-secondary flex-1" data-i18n="sheetCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== REPORTS ==================== -->

@@ -63,6 +63,8 @@
       yourScore: "Your Quiz Score:",
       weak: "Weak", strong: "Strong", target: "Target",
       noStudents: "No students", empty: "No entries",
+      sheetSelectTitle: "Select Sheet(s) to Import", sheetImport: "Import",
+      sheetCancel: "Cancel", mergeAll: "Merge all sheets",
     },
     ar: {
       privacyBadge: "\u0661\u0660\u0660\u066a \u062e\u0635\u0648\u0635\u064a - \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629 \u0645\u062d\u0644\u064a\u0627\u064b \u0639\u0644\u0649 \u062c\u0647\u0627\u0632\u0643",
@@ -118,6 +120,8 @@
       yourScore: "\u0646\u062a\u064a\u062c\u062a\u0643:",
       weak: "\u0636\u0639\u064a\u0641", strong: "\u0642\u0648\u064a", target: "\u0627\u0644\u0647\u062f\u0641",
       noStudents: "\u0644\u0627 \u064a\u0648\u062c\u062f \u0637\u0644\u0627\u0628", empty: "\u0644\u0627 \u062a\u0648\u062c\u062f \u0625\u062f\u062e\u0627\u0644\u0627\u062a",
+      sheetSelectTitle: "\u0627\u062e\u062a\u0631 \u0627\u0644\u0648\u0631\u0642\u0629 (\u0631\u0642\u0627\u0626\u0642) \u0644\u0644\u0627\u0633\u062a\u064a\u0631\u0627\u062f", sheetImport: "\u0627\u0633\u062a\u064a\u0631\u0627\u062f",
+      sheetCancel: "\u0625\u0644\u063a\u0627\u0621", mergeAll: "\u062f\u0645\u062c \u062c\u0645\u064a\u0639 \u0627\u0644\u0623\u0648\u0631\u0627\u0642",
     },
   };
 
