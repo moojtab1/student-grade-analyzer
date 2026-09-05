@@ -4,141 +4,290 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Grade Analyzer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{cairo:['Cairo','sans-serif']}}}}</script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="app">
-    <header class="glass">
-      <div class="header-left">
-        <h1 data-i18n="appTitle"><span class="accent">Student</span> Grade Analyzer</h1>
-        <p class="subtitle" data-i18n="appSubtitle">Privacy-first performance dashboard</p>
+<body class="font-cairo bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
+
+  <!-- Privacy Badge -->
+  <div id="privacyBadge" class="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/90 text-white text-xs font-semibold shadow-lg backdrop-blur-sm">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    <span data-i18n="privacyBadge">100% Private - Processing on your device</span>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 px-8 py-5 rounded-2xl shadow-2xl text-center">
+      <div class="w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm font-semibold" data-i18n="loading">Processing...</p>
+    </div>
+  </div>
+
+  <div class="app-container max-w-7xl mx-auto px-4 pb-24">
+
+    <!-- Header -->
+    <header class="glass-card flex items-center justify-between px-6 py-4 mt-4 mb-6 sticky top-4 z-40">
+      <div>
+        <h1 class="text-xl md:text-2xl font-extrabold"><span class="text-emerald-500" data-i18n="appTitleAccent">Student</span> <span data-i18n="appTitleMain">Grade Analyzer</span></h1>
+        <p class="text-xs text-gray-400 dark:text-gray-500" data-i18n="appSubtitle">Privacy-first performance dashboard</p>
       </div>
-      <div class="header-right">
-        <button class="lang-toggle" id="langToggle" aria-label="Toggle language">EN / AR</button>
-        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
-          <span class="icon-sun">&#9728;</span>
-          <span class="icon-moon">&#9790;</span>
+      <div class="flex items-center gap-2">
+        <button id="langToggle" class="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 dark:border-gray-700 hover:border-emerald-400 transition">EN / AR</button>
+        <button id="themeToggle" class="w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:border-emerald-400 transition text-lg">
+          <span class="dark:hidden">&#9790;</span>
+          <span class="hidden dark:inline">&#9728;</span>
         </button>
       </div>
     </header>
 
-    <div class="main-grid">
+    <!-- Navigation Tabs -->
+    <nav class="flex gap-1 mb-6 overflow-x-auto pb-2 scrollbar-hide" id="mainNav">
+      <button class="nav-tab active" data-tab="dashboard" data-i18n="tabDashboard">Dashboard</button>
+      <button class="nav-tab" data-tab="entry" data-i18n="tabEntry">Data Entry</button>
+      <button class="nav-tab" data-tab="analysis" data-i18n="tabAnalysis">Analysis</button>
+      <button class="nav-tab" data-tab="questions" data-i18n="tabQuestions">Question Bank</button>
+      <button class="nav-tab" data-tab="reports" data-i18n="tabReports">Reports</button>
+      <button class="nav-tab" data-tab="progress" data-i18n="tabProgress">Progress</button>
+      <button class="nav-tab" data-tab="export" data-i18n="tabExport">Export</button>
+    </nav>
 
-      <section class="panel data-entry glass">
-        <h2 data-i18n="enterGrades">Enter Grades</h2>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="studentName" data-i18n="labelStudent">Student Name</label>
-            <input type="text" id="studentName" data-i18n-placeholder="phStudent" placeholder="e.g. Alex Johnson">
-          </div>
-          <div class="form-group">
-            <label for="subjectName" data-i18n="labelSubject">Subject</label>
-            <input type="text" id="subjectName" data-i18n-placeholder="phSubject" placeholder="e.g. Mathematics">
-          </div>
-          <div class="form-group">
-            <label for="gradeInput" data-i18n="labelGrade">Grade (0-100)</label>
-            <input type="number" id="gradeInput" min="0" max="100" step="0.1" data-i18n-placeholder="phGrade" placeholder="e.g. 85.5">
-          </div>
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" id="addEntryBtn" data-i18n="addEntry">+ Add Entry</button>
-          <button class="btn btn-danger" id="clearAllBtn" data-i18n="clearAll">Clear All</button>
-        </div>
+    <!-- ==================== DASHBOARD ==================== -->
+    <section id="page-dashboard" class="page-section active">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashAvg">--</div><div class="stat-lbl" data-i18n="statAvg">Average</div></div>
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashHighest">--</div><div class="stat-lbl" data-i18n="statHighest">Highest</div></div>
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashLowest">--</div><div class="stat-lbl" data-i18n="statLowest">Lowest</div></div>
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashPass">--</div><div class="stat-lbl" data-i18n="statPass">Pass Rate</div></div>
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashGPA">--</div><div class="stat-lbl" data-i18n="statGPA">GPA</div></div>
+        <div class="glass-card p-4 text-center"><div class="stat-val" id="dashStd">--</div><div class="stat-lbl" data-i18n="statStd">Std Dev</div></div>
+      </div>
+      <div id="dashBadges" class="flex flex-wrap gap-2 mb-6"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="glass-card p-4"><h3 class="text-sm font-semibold mb-3 text-gray-500 dark:text-gray-400" data-i18n="chartSubject">Subject Scores</h3><canvas id="dashBarChart"></canvas></div>
+        <div class="glass-card p-4"><h3 class="text-sm font-semibold mb-3 text-gray-500 dark:text-gray-400" data-i18n="chartDistribution">Grade Distribution</h3><canvas id="dashDonutChart"></canvas></div>
+        <div class="glass-card p-4"><h3 class="text-sm font-semibold mb-3 text-gray-500 dark:text-gray-400" data-i18n="chartRadar">Competency Radar</h3><canvas id="dashRadarChart"></canvas></div>
+      </div>
+    </section>
 
-        <div class="grade-entries-wrapper">
-          <div id="gradeEntries"></div>
-        </div>
-
-        <div class="import-section">
-          <div class="import-block">
-            <label for="dataPaste" data-i18n="labelPaste">Or paste CSV / JSON data:</label>
-            <textarea id="dataPaste" rows="3" data-i18n-placeholder="phPaste" placeholder="CSV: name,subject,grade&#10;Alex,Math,85&#10;Sarah,Science,92"></textarea>
-            <button class="btn btn-secondary" id="importBtn" data-i18n="importData">Import Data</button>
+    <!-- ==================== DATA ENTRY ==================== -->
+    <section id="page-entry" class="page-section hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Manual Entry -->
+        <div class="glass-card p-5">
+          <h2 class="text-lg font-bold mb-4" data-i18n="enterGrades">Enter Grades</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <div><label class="form-label" data-i18n="labelStudent">Student Name</label><input id="inpName" class="form-input" data-i18n-placeholder="phStudent" placeholder="e.g. Alex"></div>
+            <div><label class="form-label" data-i18n="labelSubject">Subject</label><input id="inpSubject" class="form-input" data-i18n-placeholder="phSubject" placeholder="e.g. Math"></div>
+            <div><label class="form-label" data-i18n="labelGrade">Grade (0-100)</label><input id="inpGrade" type="number" min="0" max="100" step="0.1" class="form-input" data-i18n-placeholder="phGrade" placeholder="85"></div>
           </div>
-
-          <div class="import-block file-import-block">
-            <label data-i18n="labelFileImport">Or import from file:</label>
-            <div class="file-inputs">
-              <label class="btn btn-file" for="pdfFileInput">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
-                <span data-i18n="importPDF">Import PDF</span>
-                <input type="file" id="pdfFileInput" accept=".pdf" style="display:none">
-              </label>
-              <label class="btn btn-file" for="excelFileInput">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7V7zm6 0h4v2h-4V7zm0 4h4v2h-4v-2zM7 13h4v4H7v-4zm6 2h4v2h-4v-2z"/></svg>
-                <span data-i18n="importExcel">Import Excel</span>
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none">
-              </label>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <div><label class="form-label" data-i18n="labelDate">Date</label><input id="inpDate" type="date" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelType">Assessment Type</label>
+              <select id="inpType" class="form-input">
+                <option value="exam" data-i18n="typeExam">Exam</option>
+                <option value="quiz" data-i18n="typeQuiz">Quiz</option>
+                <option value="homework" data-i18n="typeHomework">Homework</option>
+                <option value="project" data-i18n="typeProject">Project</option>
+              </select>
             </div>
-            <p class="file-hint" data-i18n="fileHint">Files are parsed locally. Nothing leaves your device.</p>
+            <div><label class="form-label" data-i18n="labelSemester">Semester</label><input id="inpSemester" class="form-input" data-i18n-placeholder="phSemester" placeholder="Fall 2026"></div>
+          </div>
+          <div class="flex gap-2">
+            <button id="btnAddEntry" class="btn-primary" data-i18n="addEntry">+ Add Entry</button>
+            <button id="btnClearAll" class="btn-danger" data-i18n="clearAll">Clear All</button>
+          </div>
+          <div class="mt-4 max-h-64 overflow-y-auto" id="entryTableWrap">
+            <table class="w-full text-sm" id="entryTable">
+              <thead><tr class="text-left text-xs text-gray-400 border-b dark:border-gray-700">
+                <th class="p-2" data-i18n="labelStudent">Student</th>
+                <th class="p-2" data-i18n="labelSubject">Subject</th>
+                <th class="p-2" data-i18n="labelGrade">Grade</th>
+                <th class="p-2" data-i18n="labelDate">Date</th>
+                <th class="p-2" data-i18n="labelType">Type</th>
+                <th class="p-2"></th>
+              </tr></thead>
+              <tbody id="entryBody"></tbody>
+            </table>
           </div>
         </div>
-      </section>
+        <!-- File Import -->
+        <div class="glass-card p-5">
+          <h2 class="text-lg font-bold mb-4" data-i18n="importTitle">Import Data</h2>
+          <div class="mb-4">
+            <label class="form-label" data-i18n="labelPaste">Paste CSV / JSON:</label>
+            <textarea id="dataPaste" rows="4" class="form-input font-mono text-xs" data-i18n-placeholder="phPaste" placeholder="CSV: name,subject,grade&#10;Alex,Math,85"></textarea>
+            <button id="btnImportText" class="btn-secondary mt-2" data-i18n="importData">Import Data</button>
+          </div>
+          <div class="border-t dark:border-gray-700 pt-4">
+            <label class="form-label" data-i18n="labelFileImport">Import from file:</label>
+            <div class="flex flex-wrap gap-3 mt-2">
+              <label class="btn-file"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg><span data-i18n="importPDF">PDF</span><input type="file" id="filePDF" accept=".pdf" class="hidden"></label>
+              <label class="btn-file"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5zm2 2h4v4H7V7zm6 0h4v2h-4V7zm0 4h4v2h-4v-2zM7 13h4v4H7v-4zm6 2h4v2h-4v-2z"/></svg><span data-i18n="importExcel">Excel / CSV</span><input type="file" id="fileExcel" accept=".xlsx,.xls,.csv" class="hidden"></label>
+            </div>
+            <p class="text-xs text-gray-400 mt-2" data-i18n="fileHint">Files parsed locally. Nothing leaves your device.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-      <section class="panel analytics glass">
-        <h2 data-i18n="classStats">Class Statistics</h2>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="statAvg">--</div>
-            <div class="stat-label" data-i18n="statAvg">Average</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statHighest">--</div>
-            <div class="stat-label" data-i18n="statHighest">Highest</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statLowest">--</div>
-            <div class="stat-label" data-i18n="statLowest">Lowest</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statPass">--</div>
-            <div class="stat-label" data-i18n="statPass">Pass Rate</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statGPA">--</div>
-            <div class="stat-label" data-i18n="statGPA">GPA</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statStd">--</div>
-            <div class="stat-label" data-i18n="statStd">Std Dev</div>
-          </div>
+    <!-- ==================== ANALYSIS ==================== -->
+    <section id="page-analysis" class="page-section hidden">
+      <!-- Rankings -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="glass-card p-5">
+          <h2 class="text-lg font-bold mb-3" data-i18n="topPerformers">Top Performers</h2>
+          <div id="topPerformers" class="space-y-2"></div>
         </div>
-        <div id="feedbackBadges" class="feedback-badges"></div>
-      </section>
+        <div class="glass-card p-5">
+          <h2 class="text-lg font-bold mb-3" data-i18n="needsHelp">Needs Improvement</h2>
+          <div id="needsHelp" class="space-y-2"></div>
+        </div>
+      </div>
+      <!-- Subject Breakdown -->
+      <div class="glass-card p-5 mb-6">
+        <h2 class="text-lg font-bold mb-3" data-i18n="subjectBreakdown">Subject Breakdown</h2>
+        <div id="subjectBreakdown" class="overflow-x-auto"></div>
+      </div>
+      <!-- Improvement Plans -->
+      <div class="glass-card p-5">
+        <h2 class="text-lg font-bold mb-3" data-i18n="improvementPlans">Personalized Improvement Plans</h2>
+        <div id="improvementPlans" class="space-y-4"></div>
+      </div>
+    </section>
 
-      <section class="panel charts-panel glass">
-        <h2 data-i18n="perfDiagrams">Performance Diagrams</h2>
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3 data-i18n="chartSubject">Subject Scores</h3>
-            <canvas id="barChart"></canvas>
-          </div>
-          <div class="chart-card">
-            <h3 data-i18n="chartDistribution">Grade Distribution</h3>
-            <canvas id="doughnutChart"></canvas>
-          </div>
-          <div class="chart-card">
-            <h3 data-i18n="chartRadar">Competency Radar</h3>
-            <canvas id="radarChart"></canvas>
+    <!-- ==================== QUESTION BANK ==================== -->
+    <section id="page-questions" class="page-section hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass-card p-5">
+          <h2 class="text-lg font-bold mb-4" data-i18n="addQuestion">Add Question</h2>
+          <div class="space-y-3">
+            <div><label class="form-label" data-i18n="labelSubject">Subject</label><input id="qSubject" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelDifficulty">Difficulty</label>
+              <select id="qDifficulty" class="form-input">
+                <option value="easy" data-i18n="diffEasy">Easy</option>
+                <option value="medium" data-i18n="diffMedium">Medium</option>
+                <option value="hard" data-i18n="diffHard">Hard</option>
+              </select>
+            </div>
+            <div><label class="form-label" data-i18n="labelQuestion">Question</label><textarea id="qText" class="form-input" rows="2"></textarea></div>
+            <div class="grid grid-cols-2 gap-2">
+              <div><label class="form-label">A</label><input id="qOpt0" class="form-input"></div>
+              <div><label class="form-label">B</label><input id="qOpt1" class="form-input"></div>
+              <div><label class="form-label">C</label><input id="qOpt2" class="form-input"></div>
+              <div><label class="form-label">D</label><input id="qOpt3" class="form-input"></div>
+            </div>
+            <div><label class="form-label" data-i18n="correctAnswer">Correct Answer</label>
+              <select id="qCorrect" class="form-input"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>
+            </div>
+            <button id="btnAddQuestion" class="btn-primary" data-i18n="addQuestionBtn">Add Question</button>
           </div>
         </div>
-        <div class="export-actions">
-          <button class="btn btn-primary" id="exportPNGBtn" data-i18n="downloadPNG">Download PNG</button>
-          <button class="btn btn-secondary" id="exportPDFBtn" data-i18n="downloadPDF">Download PDF</button>
+        <div class="glass-card p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold" data-i18n="questionList">Questions</h2>
+            <div class="flex gap-2">
+              <select id="qFilterSubject" class="form-input text-xs py-1 px-2 w-28"><option value="" data-i18n="allSubjects">All</option></select>
+              <select id="qFilterDiff" class="form-input text-xs py-1 px-2 w-24"><option value="" data-i18n="allDiff">All</option><option value="easy" data-i18n="diffEasy">Easy</option><option value="medium" data-i18n="diffMedium">Medium</option><option value="hard" data-i18n="diffHard">Hard</option></select>
+              <button id="btnGenQuiz" class="btn-primary text-xs py-1 px-3" data-i18n="generateQuiz">Generate Quiz</button>
+            </div>
+          </div>
+          <div id="questionList" class="space-y-2 max-h-96 overflow-y-auto"></div>
         </div>
-      </section>
+      </div>
+      <!-- Quiz Modal -->
+      <div id="quizModal" class="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold" data-i18n="quizTitle">Practice Quiz</h3>
+            <button id="btnCloseQuiz" class="text-2xl leading-none">&times;</button>
+          </div>
+          <div id="quizContent"></div>
+          <button id="btnSubmitQuiz" class="btn-primary mt-4 w-full" data-i18n="submitQuiz">Submit Quiz</button>
+        </div>
+      </div>
+    </section>
 
-    </div>
+    <!-- ==================== REPORTS ==================== -->
+    <section id="page-reports" class="page-section hidden">
+      <div class="glass-card p-5 mb-6">
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <h2 class="text-lg font-bold" data-i18n="reportCard">Report Card</h2>
+          <select id="reportStudent" class="form-input text-sm py-1 px-3 w-48"><option value="" data-i18n="selectStudent">Select student...</option></select>
+          <button id="btnPrintReport" class="btn-primary text-sm" data-i18n="printReport">Print Report</button>
+          <button id="btnPDFReport" class="btn-secondary text-sm" data-i18n="downloadPDF">Download PDF</button>
+        </div>
+      </div>
+      <!-- Class Summary -->
+      <div class="glass-card p-5 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold" data-i18n="classSummary">Class Summary Report</h2>
+          <div class="flex gap-2">
+            <button id="btnPrintSummary" class="btn-primary text-sm" data-i18n="printSummary">Print Summary</button>
+            <button id="btnPDFSummary" class="btn-secondary text-sm" data-i18n="downloadPDF">Download PDF</button>
+          </div>
+        </div>
+        <div id="classSummaryContent"></div>
+      </div>
+      <!-- Printable Area -->
+      <div id="printArea" class="hidden"></div>
+    </section>
+
+    <!-- ==================== PROGRESS ==================== -->
+    <section id="page-progress" class="page-section hidden">
+      <div class="glass-card p-5 mb-6">
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <h2 class="text-lg font-bold" data-i18n="progressTracking">Progress Tracking</h2>
+          <select id="progressStudent" class="form-input text-sm py-1 px-3 w-48"><option value="" data-i18n="selectStudent">Select student...</option></select>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"><h3 class="text-sm font-semibold mb-2 text-gray-500" data-i18n="progressLine">Grade Trend</h3><canvas id="progressLineChart"></canvas></div>
+          <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl"><h3 class="text-sm font-semibold mb-2 text-gray-500" data-i18n="progressBySubject">By Subject</h3><canvas id="progressSubjectChart"></canvas></div>
+        </div>
+      </div>
+      <div class="glass-card p-5">
+        <h2 class="text-lg font-bold mb-3" data-i18n="semesterCompare">Semester Comparison</h2>
+        <canvas id="progressSemesterChart" style="max-height:300px"></canvas>
+      </div>
+    </section>
+
+    <!-- ==================== EXPORT ==================== -->
+    <section id="page-export" class="page-section hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <button id="btnExportPNG" class="glass-card p-6 text-center hover:border-emerald-400 border-2 border-transparent transition group">
+          <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">&#128247;</div>
+          <div class="font-bold" data-i18n="exportPNG">Export Charts as PNG</div>
+          <div class="text-xs text-gray-400 mt-1" data-i18n="exportPNGDesc">Download all charts as images</div>
+        </button>
+        <button id="btnExportPDF" class="glass-card p-6 text-center hover:border-emerald-400 border-2 border-transparent transition group">
+          <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">&#128196;</div>
+          <div class="font-bold" data-i18n="exportPDF">Export Report as PDF</div>
+          <div class="text-xs text-gray-400 mt-1" data-i18n="exportPDFDesc">Full analytics report download</div>
+        </button>
+        <button id="btnExportPPTX" class="glass-card p-6 text-center hover:border-emerald-400 border-2 border-transparent transition group">
+          <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">&#128202;</div>
+          <div class="font-bold" data-i18n="exportPPTX">Export to PowerPoint</div>
+          <div class="text-xs text-gray-400 mt-1" data-i18n="exportPPTXDesc">Presentation with charts &amp; metrics</div>
+        </button>
+      </div>
+    </section>
+
   </div>
 
   <script src="app.js"></script>
+  <script src="charts.js"></script>
+  <script src="analytics.js"></script>
+  <script src="entry.js"></script>
+  <script src="questions.js"></script>
+  <script src="reports.js"></script>
+  <script src="progress.js"></script>
+  <script src="export.js"></script>
 </body>
 </html>
