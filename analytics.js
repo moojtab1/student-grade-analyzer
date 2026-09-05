@@ -102,6 +102,94 @@
     return { weak: weak, strong: strong };
   }
 
+  /* Per-student subject matrix with final degree = overall average across subjects */
+  function finalDegreeMatrix() {
+    var students = {};
+    window.App.entries.forEach(function (e) {
+      if (!students[e.name]) students[e.name] = {};
+      if (!students[e.name][e.subject]) students[e.name][e.subject] = [];
+      students[e.name][e.subject].push(e.grade);
+    });
+    var names = Object.keys(students).sort();
+    var subjects = {};
+    names.forEach(function (n) {
+      Object.keys(students[n]).forEach(function (s) { subjects[s] = true; });
+    });
+    var subjectList = Object.keys(subjects).sort();
+    var rows = names.map(function (name) {
+      var perSubject = {};
+      var allGrades = [];
+      subjectList.forEach(function (s) {
+        var gs = students[name][s] || [];
+        if (gs.length) {
+          var avg = gs.reduce(function (a, b) { return a + b; }, 0) / gs.length;
+          perSubject[s] = { avg: +avg.toFixed(1), count: gs.length };
+          allGrades = allGrades.concat(gs);
+        }
+      });
+      var finalDegree = allGrades.length ? +(allGrades.reduce(function (a, b) { return a + b; }, 0) / allGrades.length).toFixed(1) : 0;
+      return { name: name, perSubject: perSubject, finalDegree: finalDegree };
+    });
+    rows.sort(function (a, b) { return b.finalDegree - a.finalDegree; });
+    return { subjectList: subjectList, rows: rows };
+  }
+
+  function subjectGradeInfo(avg) {
+    for (var i = 0; i < GRADE_SCALE.length; i++) {
+      if (avg >= GRADE_SCALE[i].min && avg <= GRADE_SCALE[i].max) {
+        return { grade: GRADE_SCALE[i].letter, color: GRADE_SCALE[i].letter === "F" ? "#ef4444" : (avg >= 80 ? "#10b981" : avg >= 60 ? "#f59e0b" : "#ef4444") };
+      }
+    }
+    return { grade: "F", color: "#ef4444" };
+  }
+
+  function finalColor(v) {
+    if (v >= 85) return "#10b981";
+    if (v >= 70) return "#10b981";
+    if (v >= 60) return "#f59e0b";
+    return "#ef4444";
+  }
+
+  function renderFinalMatrix() {
+    var box = document.getElementById("finalMatrix");
+    if (!box) return;
+    var data = finalDegreeMatrix();
+    if (!data.rows.length) {
+      box.innerHTML = '<p class="text-sm text-gray-400">' + window.App.t("noData") + "</p>";
+      return;
+    }
+    var ar = window.App.currentLang === "ar";
+    var gradeCol = ar ? "\u0627\u0644\u062f\u0631\u062c\u0629" : "Grade";
+    var finalLabel = ar ? "\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629" : "Final Degree";
+
+    var html = '<table class="w-full text-sm"><thead><tr class="text-xs text-gray-400 border-b dark:border-gray-700">';
+    html += '<th class="p-2 text-left">' + (ar ? "\u0627\u0644\u0637\u0627\u0644\u0628" : "Student") + "</th>";
+    data.subjectList.forEach(function (s) {
+      html += '<th class="p-2 text-center">' + s + "<br><span class='text-[10px] font-normal'>(" + gradeCol + ")</span></th>";
+    });
+    html += '<th class="p-2 text-center bg-black/5 dark:bg-white/5">' + finalLabel + "</th>";
+    html += "</tr></thead><tbody>";
+
+    data.rows.forEach(function (row, rank) {
+      var rowBg = rank % 2 ? "bg-black/[0.02] dark:bg-white/[0.02]" : "";
+      html += "<tr class='border-b dark:border-gray-800 " + rowBg + "'>";
+      html += '<td class="p-2 font-medium">' + row.name + "</td>";
+      data.subjectList.forEach(function (s) {
+        var cell = row.perSubject[s];
+        if (!cell) {
+          html += '<td class="p-2 text-center text-gray-300 dark:text-gray-600">-</td>';
+        } else {
+          var info = subjectGradeInfo(cell.avg);
+          html += '<td class="p-2 text-center"><div class="font-bold" style="color:' + info.color + '">' + cell.avg + '</div><div class="text-[10px] text-gray-400">' + info.grade + " (" + cell.count + ")</div></td>";
+        }
+      });
+      html += '<td class="p-2 text-center bg-black/5 dark:bg-white/5"><div class="text-lg font-extrabold" style="color:' + finalColor(row.finalDegree) + '">' + row.finalDegree + '</div><div class="text-[10px] text-gray-400">' + window.Ana.letterOf(row.finalDegree).letter + "</div></td>";
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    box.innerHTML = html;
+  }
+
   /* ===== Rendering ===== */
   function rankColor(i) {
     return i === 0 ? "#f59e0b" : i === 1 ? "#9ca3af" : i === 2 ? "#b45309" : "#10b981";
@@ -237,13 +325,19 @@
     studentAverages: studentAverages,
     subjectAverages: subjectAverages,
     improvementPlan: improvementPlan,
+    finalDegreeMatrix: finalDegreeMatrix,
+    renderFinalMatrix: renderFinalMatrix,
     renderAll: function () {
       renderDashboardStats();
+      renderFinalMatrix();
       renderRankings();
       renderSubjectBreakdown();
       renderPlans();
     },
-    bind: function () { /* no static bindings */ },
+    bind: function () {
+      var rb = document.getElementById("btnRefreshFinal");
+      if (rb) rb.addEventListener("click", function () { renderFinalMatrix(); });
+    },
     init: function () {
     },
   };
