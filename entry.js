@@ -127,7 +127,14 @@
         var role = classifyCell(cell);
         if (role) count[role] = (count[role] || 0) + 1;
       });
+      /* classic long-table: a name column + a grade column */
       if ((count.name || 0) >= 1 && (count.grade || 0) >= 1) return i;
+      /* wide-table: a name column + at least one non-synonym text column
+         whose values below are mostly numeric (subject-score columns) */
+      if ((count.name || 0) >= 1) {
+        var wide = detectWide(grid[i], grid, i);
+        if (wide && wide.subjects.length >= 1) return i;
+      }
     }
     return -1;
   }
@@ -177,6 +184,42 @@
     return false;
   }
 
+  /* Detect wide-format tables: subject names in the header row, scores in the
+     numeric columns below, one student per row. Returns the mapping or null. */
+  function detectWide(headerRow, grid, headerIdx) {
+    var nameCol = -1;
+    headerRow.forEach(function (cell, i) {
+      var role = classifyCell(cell);
+      if (role === "name" && nameCol === -1) nameCol = i;
+    });
+    if (nameCol === -1) return null;
+
+    var width = headerRow.length;
+    var subjectCols = [];
+    for (var c = 0; c < width; c++) {
+      if (c === nameCol) continue;
+      var head = String(headerRow[c] || "").trim();
+      if (!head) continue;
+      if (classifyCell(head) === "grade" || classifyCell(head) === "subject") continue;
+      if (normCell(head).indexOf("total") !== -1 || normCell(head).indexOf("\u0627\u0644\u0645\u062c\u0645\u0648\u0639") !== -1 ||
+          normCell(head).indexOf("\u0645\u0639\u062f\u0644") !== -1 || normCell(head).indexOf("average") !== -1 ||
+          normCell(head).indexOf("avg") !== -1 || normCell(head).indexOf("\u062a\u0642\u062f\u064a\u0631") !== -1 ||
+          normCell(head).indexOf("grade") === 0 && classifyCell(head) === "grade") continue;
+      // must have mostly numeric values below (scores)
+      var num = 0, nonEmpty = 0;
+      for (var j = headerIdx + 1; j < grid.length; j++) {
+        if (isSummaryRow(grid, j)) continue;
+        var cell = grid[j][c];
+        if (cell === undefined || cell === null || String(cell).trim() === "") continue;
+        nonEmpty++;
+        if (parseGrade(cell) !== null) num++;
+      }
+      if (nonEmpty > 0 && num / nonEmpty >= 0.7) subjectCols.push(c);
+    }
+    if (!subjectCols.length) return null;
+    return { kind: "wide", name: nameCol, subjects: subjectCols };
+  }
+
   function parseRowsToEntries(rows) {
     if (!rows || !rows.length) return [];
     var grid = [];
@@ -192,6 +235,20 @@
     var headerIdx = detectHeader(grid);
     var map = headerIdx === -1 ? null : mapColumns(grid[headerIdx]);
     var start = headerIdx === -1 ? 0 : headerIdx + 1;
+
+    /* Wide-format layout takes priority when a name column exists but no
+       dedicated subject+grade pair columns do. */
+    /* Wide-format layout: subject names appear as header-row columns with
+       numeric scores below and one student per row. Prefer it only when the
+       header does NOT expose a dedicated grade column (i.e. a classic
+       name/subject/grade long table). */
+    var wide = null;
+    if (headerIdx !== -1 && (!map || map.grade === -1)) {
+      wide = detectWide(grid[headerIdx], grid, headerIdx);
+    }
+    if (wide && wide.subjects.length) {
+      return buildWideEntries(grid, headerIdx, wide);
+    }
 
     if (!map || map.name === -1 || map.grade === -1) {
       var fb = positionalMap(grid, start);
@@ -222,6 +279,25 @@
         type: map.type !== -1 ? grid[j][map.type] : null,
         semester: map.semester !== -1 ? grid[j][map.semester] : null,
       });
+    }
+    return entries;
+  }
+
+  function buildWideEntries(grid, headerIdx, wide) {
+    var entries = [];
+    var subjectNames = wide.subjects.map(function (c) { return String(grid[headerIdx][c] || "").trim(); });
+    for (var j = headerIdx + 1; j < grid.length; j++) {
+      if (isSummaryRow(grid, j)) continue;
+      var name = String(grid[j][wide.name] || "").trim();
+      if (!name) continue;
+      var added = false;
+      wide.subjects.forEach(function (ci, idx) {
+        var gv = parseGrade(grid[j][ci]);
+        if (gv === null) return;
+        entries.push({ name: name, subject: subjectNames[idx] || "\u0645\u0627\u062f\u0629", grade: gv, date: null, type: null, semester: null });
+        added = true;
+      });
+      if (!added) continue;
     }
     return entries;
   }
