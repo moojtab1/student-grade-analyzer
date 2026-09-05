@@ -150,6 +150,36 @@
     reader.readAsArrayBuffer(file);
   }
 
+  function yGroupItems(content) {
+    var rows = [];
+    content.items.forEach(function (it) {
+      var str = it.str;
+      if (!str || !str.trim()) return;
+      var rawY = +it.transform[5];
+      var x = +it.transform[4];
+      var cha;
+      for (var i = 0; i < rows.length; i++) {
+        if (Math.abs(rawY - rows[i].y) < 3) { cha = rows[i]; break; }
+      }
+      if (!cha) { cha = { y: rawY, items: [] }; rows.push(cha); }
+      cha.items.push({ x: x, w: +it.width || (str.length * 6), str: str });
+    });
+    rows.sort(function (a, b) { return b.y - a.y; });
+    return rows.map(function (r) {
+      r.items.sort(function (a, b) { return a.x - b.x; });
+      var cells = [];
+      var cur = "";
+      var prevEnd = null;
+      r.items.forEach(function (it) {
+        if (prevEnd !== null && it.x - prevEnd > 10) { cells.push(cur); cur = ""; }
+        cur += it.str;
+        prevEnd = it.x + it.w;
+      });
+      if (cur) cells.push(cur);
+      return cells;
+    });
+  }
+
   function importPDF(file) {
     window.App.showLoading();
     var reader = new FileReader();
@@ -160,20 +190,25 @@
       pdfjsLib.getDocument({ data: data }).promise.then(function (pdf) {
         var proms = [];
         for (var i = 1; i <= pdf.numPages; i++) {
-          proms.push(pdf.getPage(i).then(function (pg) {
-            return pg.getTextContent().then(function (c) {
-              return c.items.map(function (it) { return it.str; }).join(" ");
-            });
-          }));
+          proms.push(pdf.getPage(i).then(function (pg) { return pg.getTextContent(); }));
         }
-        Promise.all(proms).then(function (parts) {
-          var txt = parts.join("\n");
-          var lines = txt.split("\n").filter(function (l) { return /[a-zA-Z\u0600-\u06FF]/.test(l); });
-          if (lines.some(function (l) { return l.indexOf(",") !== -1 || l.indexOf("\t") !== -1; })) {
-            importFromText(lines.join("\n"));
-          } else {
-            alert("Could not detect tabular data in PDF");
+        Promise.all(proms).then(function (contents) {
+          var rowGrid = [];
+          contents.forEach(function (c) {
+            yGroupItems(c).forEach(function (cells) {
+              var clean = cells.map(function (s) {
+                return s.replace(/^\s*[,|:>\-]+\s*|\s*[,|:>\-]+\s*$/g, "").trim();
+              }).filter(function (s) { return s; });
+              if (clean.length) rowGrid.push(clean);
+            });
+          });
+          var usable = rowGrid.filter(function (r) { return r.length >= 2; });
+          if (!usable.length) {
+            alert(window.App.t("errNoTable"));
+            window.App.hideLoading();
+            return;
           }
+          importFromRows(rowGrid);
           window.App.hideLoading();
         });
       }).catch(function () { alert("PDF parse error"); window.App.hideLoading(); });
