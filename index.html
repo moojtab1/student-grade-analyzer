@@ -136,6 +136,84 @@
           </div>
         </div>
       </div>
+
+      <!-- Grade Adjustment (Curve) -->
+      <div class="glass-card p-5 mt-6">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-lg font-bold" data-i18n="adjustTitle">Grade Adjustment (Curve)</h2>
+          <button id="btnUndoAdjust" class="btn-danger text-sm" data-i18n="btnUndo">Undo</button>
+        </div>
+        <p class="text-xs text-gray-400 mb-4" data-i18n="adjustHint">Apply a curve to grades after a difficult exam. Preview first, then apply. Undo restores the original grades.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+          <div>
+            <label class="form-label" data-i18n="adjMode">Mode</label>
+            <select id="adjMode" class="form-input">
+              <option value="add" data-i18n="adjAdd">Add points</option>
+              <option value="multiply" data-i18n="adjMul">Multiply by %</option>
+              <option value="sqrt" data-i18n="adjSqrt">Square-root curve</option>
+              <option value="pass" data-i18n="adjPass">Raise to pass</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="adjValue" id="adjValueLabel">Value</label>
+            <input id="adjValue" type="number" min="0" step="0.1" class="form-input" value="5">
+          </div>
+          <div>
+            <label class="form-label" for="adjCap" data-i18n="adjCap">Max score</label>
+            <input id="adjCap" type="number" min="1" step="1" class="form-input" value="100">
+          </div>
+          <div>
+            <label class="form-label" data-i18n="adjScope">Apply to</label>
+            <select id="adjScope" class="form-input">
+              <option value="all" data-i18n="adjAll">All grades</option>
+              <option value="subject" data-i18n="adjSubject">One subject</option>
+              <option value="student" data-i18n="adjStudent">One student</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" data-i18n="adjSelSubject">Subject</label>
+            <select id="adjSubjectSel" class="form-input"></select>
+          </div>
+          <div>
+            <label class="form-label" data-i18n="adjSelStudent">Student</label>
+            <select id="adjStudentSel" class="form-input"></select>
+          </div>
+        </div>
+        <div class="flex gap-2 mb-4">
+          <button id="btnPreviewAdjust" class="btn-secondary" data-i18n="btnPreview">Preview</button>
+          <button id="btnApplyAdjust" class="btn-primary" data-i18n="btnApply">Apply Adjustment</button>
+        </div>
+        <div id="adjPreview" class="text-sm"></div>
+      </div>
+
+      <!-- Entry Edit Modal -->
+      <div id="entryEditModal" class="fixed inset-0 z-[96] bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold" data-i18n="editTitle">Edit Entry</h3>
+            <button id="btnCloseEdit" class="text-2xl leading-none">&times;</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div><label class="form-label" data-i18n="labelStudent">Student Name</label><input id="editName" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelSubject">Subject</label><input id="editSubject" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelGrade">Grade (0-100)</label><input id="editGrade" type="number" min="0" max="150" step="0.1" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelDate">Date</label><input id="editDate" type="date" class="form-input"></div>
+            <div><label class="form-label" data-i18n="labelType">Assessment Type</label>
+              <select id="editType" class="form-input">
+                <option value="exam" data-i18n="typeExam">Exam</option>
+                <option value="quiz" data-i18n="typeQuiz">Quiz</option>
+                <option value="homework" data-i18n="typeHomework">Homework</option>
+                <option value="project" data-i18n="typeProject">Project</option>
+              </select>
+            </div>
+            <div><label class="form-label" data-i18n="labelSemester">Semester</label><input id="editSemester" class="form-input"></div>
+          </div>
+          <div class="flex gap-2">
+            <button id="btnSaveEdit" class="btn-primary flex-1" data-i18n="editSave">Save</button>
+            <button id="btnCancelEdit" class="btn-secondary flex-1" data-i18n="editCancel">Cancel</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ==================== ANALYSIS ==================== -->

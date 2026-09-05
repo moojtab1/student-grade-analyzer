@@ -20,12 +20,18 @@
         '<td class="p-2 font-semibold">' + e.grade + "</td>" +
         '<td class="p-2 text-gray-400">' + (e.date || "-") + "</td>" +
         '<td class="p-2 text-gray-400">' + (e.type || "exam") + "</td>" +
-        '<td class="p-2"><button data-idx="' + origIdx + '" class="btn-danger text-xs px-2 py-1">\u00d7</button></td>';
-      tr.querySelector("button").addEventListener("click", function () {
+        '<td class="p-2"><div class="flex justify-end gap-1">' +
+        '<button data-action="edit" data-idx="' + origIdx + '" class="btn-secondary text-xs px-2 py-1">\u270e</button>' +
+        '<button data-action="delete" data-idx="' + origIdx + '" class="btn-danger text-xs px-2 py-1">\u00d7</button>' +
+        "</div></td>";
+      tr.querySelector('button[data-action="delete"]').addEventListener("click", function () {
         App.entries.splice(origIdx, 1);
         App.entries = App.entries.slice();
         renderEntryTable();
         window.App.refreshDashboard();
+      });
+      tr.querySelector('button[data-action="edit"]').addEventListener("click", function () {
+        openEntryModal(origIdx);
       });
       tbody.appendChild(tr);
     });
@@ -558,9 +564,189 @@
   }
 
   /* ===== propagate to other modules ===== */
+  var adjustBackup = null;
+  var editingIdx = -1;
+
+  /* ===== Manual edit of an entry ===== */
+  function openEntryModal(idx) {
+    var e = App.entries[idx];
+    if (!e) return;
+    editingIdx = idx;
+    document.getElementById("editName").value = e.name;
+    document.getElementById("editSubject").value = e.subject;
+    document.getElementById("editGrade").value = e.grade;
+    document.getElementById("editDate").value = e.date || "";
+    document.getElementById("editType").value = e.type || "exam";
+    document.getElementById("editSemester").value = e.semester || "";
+    document.getElementById("entryEditModal").classList.remove("hidden");
+    document.getElementById("entryEditModal").classList.add("flex");
+  }
+
+  function hideEntryModal() {
+    document.getElementById("entryEditModal").classList.add("hidden");
+    document.getElementById("entryEditModal").classList.remove("flex");
+    editingIdx = -1;
+  }
+
+  function saveEntryModal() {
+    if (editingIdx < 0) return;
+    var name = document.getElementById("editName").value.trim();
+    var subject = document.getElementById("editSubject").value.trim();
+    var grade = parseFloat(document.getElementById("editGrade").value);
+    var date = document.getElementById("editDate").value;
+    var type = document.getElementById("editType").value;
+    var semester = document.getElementById("editSemester").value.trim();
+    if (!name || !subject || isNaN(grade)) {
+      document.getElementById("editName").focus();
+      return;
+    }
+    App.entries[editingIdx] = { name: name, subject: subject, grade: grade, date: date || null, type: type, semester: semester || null };
+    hideEntryModal();
+    renderEntryTable();
+    window.App.refreshDashboard();
+  }
+
+  /* ===== Grade adjustment (curving) ===== */
+  function adjustTargets() {
+    var scope = document.getElementById("adjScope").value;
+    var out = [];
+    App.entries.forEach(function (e, i) { out.push(i); });
+    if (scope === "subject") {
+      var s = document.getElementById("adjSubjectSel").value;
+      out = [];
+      App.entries.forEach(function (e, i) { if (String(e.subject).trim() === s) out.push(i); });
+    } else if (scope === "student") {
+      var st = document.getElementById("adjStudentSel").value;
+      out = [];
+      App.entries.forEach(function (e, i) { if (e.name === st) out.push(i); });
+    }
+    return out;
+  }
+
+  function adjustCalc(grade, mode, val, cap, shift) {
+    if (grade > cap) return grade;
+    var out = grade;
+    if (mode === "add") out = grade + val;
+    else if (mode === "multiply") out = grade * (val / 100);
+    else if (mode === "sqrt") out = Math.sqrt(Math.min(grade, cap) / cap) * cap;
+    else if (mode === "pass") out = grade + shift;
+    if (grade <= cap) out = Math.min(out, cap);
+    return Math.round(out * 10) / 10;
+  }
+
+  function passShift(targets, passAt) {
+    var min = Infinity;
+    targets.forEach(function (i) { if (App.entries[i].grade < min) min = App.entries[i].grade; });
+    if (!isFinite(min) || isNaN(passAt)) return 0;
+    return Math.max(0, passAt - min);
+  }
+
+  function adjustParams() {
+    var mode = document.getElementById("adjMode").value;
+    var val = parseFloat(document.getElementById("adjValue").value);
+    var cap = parseFloat(document.getElementById("adjCap").value);
+    if (isNaN(val)) val = 0;
+    if (!cap || isNaN(cap) || cap <= 0) cap = 100;
+    return { mode: mode, val: val, cap: cap };
+  }
+
+  function renderAdjustPreview() {
+    var con = document.getElementById("adjPreview");
+    var p = adjustParams();
+    var targets = adjustTargets();
+    if (!targets.length) {
+      con.innerHTML = '<p class="text-gray-400 py-2">' + window.App.t("adjNoTargets") + "</p>";
+      return;
+    }
+    var shift = p.mode === "pass" ? passShift(targets, p.val) : 0;
+    var oldG = targets.map(function (i) { return App.entries[i].grade; });
+    var newG = targets.map(function (i) { return adjustCalc(App.entries[i].grade, p.mode, p.val, p.cap, shift); });
+    var oldStats = window.Ana.computeStats(oldG);
+    var newStats = window.Ana.computeStats(newG);
+    var isAr = window.App.currentLang === "ar";
+    var html = '<div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">';
+    html += '<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">' + (isAr ? "\u0627\u0644\u0645\u062a\u0648\u0633\u0637" : "Average") + '</div><div class="font-bold text-emerald-500">' + oldStats.avg + " \u2192 " + newStats.avg + "</div></div>";
+    html += '<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">' + (isAr ? "\u0645\u0639\u062f\u0644 \u0627\u0644\u0646\u062c\u0627\u062d" : "Pass Rate") + '</div><div class="font-bold text-emerald-500">' + oldStats.pass + "% \u2192 " + newStats.pass + '%</div></div>';
+    html += '<div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center"><div class="text-xs text-gray-400">' + (isAr ? "\u0627\u0644\u0639\u062f\u062f" : "Grades") + '</div><div class="font-bold">' + targets.length + "</div></div>";
+    html += "</div>";
+    html += '<div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr class="text-left text-gray-400 border-b"><th class="p-2">' + (isAr ? "\u0627\u0644\u0637\u0627\u0644\u0628" : "Student") + '</th><th class="p-2">' + (isAr ? "\u0627\u0644\u0645\u0627\u062f\u0629" : "Subject") + '</th><th class="p-2">' + window.App.t("adjBefore") + '</th><th class="p-2">' + window.App.t("adjAfter") + "</th></tr></thead><tbody>";
+    var shown = Math.min(targets.length, 10);
+    for (var i = 0; i < shown; i++) {
+      var e = App.entries[targets[i]];
+      html += '<tr class="border-b"><td class="p-2">' + e.name + '</td><td class="p-2">' + e.subject + '</td><td class="p-2">' + oldG[i] + '</td><td class="p-2 font-semibold text-emerald-500">' + newG[i] + "</td></tr>";
+    }
+    html += "</tbody></table></div>";
+    if (targets.length > shown) html += '<p class="text-xs text-gray-400 mt-2">+ ' + (targets.length - shown) + " " + window.App.t("adjMore") + "</p>";
+    con.innerHTML = html;
+  }
+
+  function applyAdjustment() {
+    var p = adjustParams();
+    var targets = adjustTargets();
+    if (!targets.length) { alert(window.App.t("adjNoTargets")); return; }
+    adjustBackup = App.entries.map(function (e) {
+      return { name: e.name, subject: e.subject, grade: e.grade, date: e.date, type: e.type, semester: e.semester };
+    });
+    var shift = p.mode === "pass" ? passShift(targets, p.val) : 0;
+    targets.forEach(function (i) {
+      App.entries[i].grade = adjustCalc(App.entries[i].grade, p.mode, p.val, p.cap, shift);
+    });
+    renderEntryTable();
+    window.App.refreshDashboard();
+    renderAdjustPreview();
+    alert(window.App.t("adjApplied") + " " + targets.length + " " + (window.App.currentLang === "ar" ? "\u062f\u0631\u062c\u0629" : "grades"));
+  }
+
+  function undoAdjustment() {
+    if (!adjustBackup) { alert(window.App.t("adjUndone")); return; }
+    App.entries = adjustBackup;
+    adjustBackup = null;
+    renderEntryTable();
+    window.App.refreshDashboard();
+    document.getElementById("adjPreview").innerHTML = "";
+    alert(window.App.t("adjUndone"));
+  }
+
+  function refreshAdjustOptions() {
+    var subSel = document.getElementById("adjSubjectSel");
+    var stuSel = document.getElementById("adjStudentSel");
+    var curSub = subSel.value, curStu = stuSel.value;
+    subSel.innerHTML = '<option value="">' + (window.App.currentLang === "ar" ? "\u0627\u0644\u0643\u0644..." : "All...") + "</option>";
+    App.util.uniqueSubjects().forEach(function (s) {
+      var o = document.createElement("option");
+      o.value = s; o.textContent = s; subSel.appendChild(o);
+    });
+    stuSel.innerHTML = '<option value="">' + (window.App.currentLang === "ar" ? "\u0627\u0644\u0643\u0644..." : "All...") + "</option>";
+    App.util.uniqueStudents().forEach(function (s) {
+      var o = document.createElement("option");
+      o.value = s; o.textContent = s; stuSel.appendChild(o);
+    });
+    if (curSub && App.util.uniqueSubjects().indexOf(curSub) !== -1) subSel.value = curSub;
+    if (curStu && App.util.uniqueStudents().indexOf(curStu) !== -1) stuSel.value = curStu;
+  }
+
+  function updateAdjUI() {
+    var mode = document.getElementById("adjMode").value;
+    var lbl = document.getElementById("adjValueLabel");
+    lbl.textContent = window.App.t(mode === "add" ? "adjValAdd" : mode === "multiply" ? "adjValMul" : mode === "pass" ? "adjValPass" : "adjValSqrt");
+    var scope = document.getElementById("adjScope").value;
+    document.getElementById("adjSubjectSel").disabled = scope === "all" || scope === "student";
+    document.getElementById("adjStudentSel").disabled = scope === "all" || scope === "subject";
+    if (scope === "subject") {
+      var ss = document.getElementById("adjSubjectSel");
+      if (ss.options.length > 1 && ss.value === "") ss.selectedIndex = 1;
+    }
+    if (scope === "student") {
+      var st = document.getElementById("adjStudentSel");
+      if (st.options.length > 1 && st.value === "") st.selectedIndex = 1;
+    }
+  }
+
   function renderQueues() {
     if (window.Rpt) window.Rpt.renderSummary();
     if (window.QB && window.QB.refreshFilters) window.QB.refreshFilters();
+    refreshAdjustOptions();
+    updateAdjUI();
   }
 
   window.Entry = {
@@ -584,9 +770,22 @@
         if (e.target.files[0]) importPDF(e.target.files[0]);
         e.target.value = "";
       });
+      document.getElementById("btnPreviewAdjust").addEventListener("click", renderAdjustPreview);
+      document.getElementById("btnApplyAdjust").addEventListener("click", applyAdjustment);
+      document.getElementById("btnUndoAdjust").addEventListener("click", undoAdjustment);
+      document.getElementById("adjMode").addEventListener("change", updateAdjUI);
+      document.getElementById("adjScope").addEventListener("change", updateAdjUI);
+      document.getElementById("btnSaveEdit").addEventListener("click", saveEntryModal);
+      document.getElementById("btnCancelEdit").addEventListener("click", hideEntryModal);
+      document.getElementById("btnCloseEdit").addEventListener("click", hideEntryModal);
       ["inpName", "inpSubject", "inpGrade"].forEach(function (id) {
         document.getElementById(id).addEventListener("keydown", function (e) { if (e.key === "Enter") addEntry(); });
       });
+      ["editName", "editSubject", "editGrade"].forEach(function (id) {
+        document.getElementById(id).addEventListener("keydown", function (e) { if (e.key === "Enter") saveEntryModal(); });
+      });
+      renderQueues();
+      updateAdjUI();
     },
   };
 })();
