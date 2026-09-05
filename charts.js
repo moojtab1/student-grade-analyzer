@@ -23,6 +23,12 @@
     }
   }
 
+  function yMax(values) {
+    var m = 100;
+    values.forEach(function (v) { if (v > m) m = v; });
+    return m > 100 ? Math.ceil(m * 1.1) : 100;
+  }
+
   function makeBar(id, labels, scores) {
     destroy(id);
     var c = chartColors();
@@ -46,7 +52,7 @@
         responsive: true, maintainAspectRatio: true,
         plugins: { legend: { display: false }, tooltip: { backgroundColor: c.tooltipBg, titleColor: "#fff", bodyColor: "#fff" } },
         scales: {
-          y: { beginAtZero: true, max: 100, ticks: { color: c.text }, grid: { color: c.grid } },
+          y: { beginAtZero: true, max: yMax(scores), ticks: { color: c.text }, grid: { color: c.grid } },
           x: { ticks: { color: c.text }, grid: { display: false } },
         },
       },
@@ -106,7 +112,7 @@
         responsive: true, maintainAspectRatio: true,
         plugins: { legend: { display: false }, tooltip: { backgroundColor: c.tooltipBg, titleColor: "#fff", bodyColor: "#fff" } },
         scales: {
-          r: { beginAtZero: true, max: 100, ticks: { color: c.text, backdropColor: "transparent" }, grid: { color: c.grid }, pointLabels: { color: c.text, font: { size: 11 } }, angleLines: { color: c.grid } },
+          r: { beginAtZero: true, max: yMax(scores), ticks: { color: c.text, backdropColor: "transparent" }, grid: { color: c.grid }, pointLabels: { color: c.text, font: { size: 11 } }, angleLines: { color: c.grid } },
         },
       },
     });
@@ -139,7 +145,7 @@
         responsive: true, maintainAspectRatio: true,
         plugins: { legend: { display: !!label }, tooltip: { backgroundColor: c.tooltipBg, titleColor: "#fff", bodyColor: "#fff" } },
         scales: {
-          y: { beginAtZero: true, max: 100, ticks: { color: c.text }, grid: { color: c.grid } },
+          y: { beginAtZero: true, max: yMax(values), ticks: { color: c.text }, grid: { color: c.grid } },
           x: { ticks: { color: c.text }, grid: { display: false } },
         },
       },
@@ -164,7 +170,7 @@
         responsive: true, maintainAspectRatio: true,
         plugins: { legend: { position: "bottom", labels: { color: c.text } }, tooltip: { backgroundColor: c.tooltipBg, titleColor: "#fff", bodyColor: "#fff" } },
         scales: {
-          y: { beginAtZero: true, max: 100, ticks: { color: c.text }, grid: { color: c.grid } },
+          y: { beginAtZero: true, max: yMax(datasets.reduce(function (a, ds) { return a.concat(ds.values); }, [])), ticks: { color: c.text }, grid: { color: c.grid } },
           x: { ticks: { color: c.text }, grid: { display: false } },
         },
       },

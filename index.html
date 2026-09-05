@@ -250,6 +250,9 @@
           <button id="btnPrintReport" class="btn-primary text-sm" data-i18n="printReport">Print Report</button>
           <button id="btnPDFReport" class="btn-secondary text-sm" data-i18n="downloadPDF">Download PDF</button>
         </div>
+        <div id="reportDisplay" class="border-t dark:border-gray-700 pt-4">
+          <p class="text-sm text-gray-400" data-i18n="selectStudent">Select student...</p>
+        </div>
       </div>
       <!-- Class Summary -->
       <div class="glass-card p-5 mb-6">
@@ -262,7 +265,7 @@
         </div>
         <div id="classSummaryContent"></div>
       </div>
-      <!-- Printable Area -->
+      <!-- Printable Area (rendered off-screen by print/PDF helpers) -->
       <div id="printArea" class="hidden"></div>
     </section>
 

@@ -112,28 +112,53 @@
   }
 
   function mapColumns(headerRow) {
-    var result = { name: -1, subject: -1, grade: -1, date: -1, type: -1, semester: -1 };
+    var result = { name: -1, subject: -1, grade: -1, date: -1, type: -1, semester: -1, finalLabel: null };
     headerRow.forEach(function (cell, i) {
       var role = classifyCell(cell);
-      if (role && result[role] === -1) result[role] = i;
+      if (role && result[role] === -1) {
+        result[role] = i;
+        if (role === "grade" && matchesFinal(normCell(cell))) result.finalLabel = String(cell).trim();
+      }
     });
     return result;
+  }
+
+  /* How many non-empty cells under a grade column are numeric (0..1). A low
+     value means the column holds letter grades (A/B/...) or labels, i.e. it is
+     a summary column rather than a real score column. */
+  function gradeColumnNumericRatio(grid, headerIdx, colIdx) {
+    if (colIdx === -1) return 0;
+    var num = 0, nonEmpty = 0;
+    for (var j = headerIdx + 1; j < grid.length; j++) {
+      if (isSummaryRow(grid, j)) continue;
+      var cell = grid[j][colIdx];
+      if (cell === undefined || cell === null || String(cell).trim() === "") continue;
+      nonEmpty++;
+      if (parseGrade(cell) !== null) num++;
+    }
+    return nonEmpty ? num / nonEmpty : 0;
   }
 
   function detectHeader(grid) {
     for (var i = 0; i < Math.min(grid.length, 20); i++) {
       var count = {};
-      grid[i].forEach(function (cell) {
+      var gradeColIdx = -1;
+      grid[i].forEach(function (cell, ci) {
         var role = classifyCell(cell);
-        if (role) count[role] = (count[role] || 0) + 1;
+        if (role) {
+          count[role] = (count[role] || 0) + 1;
+          if (role === "grade" && gradeColIdx === -1) gradeColIdx = ci;
+        }
       });
-      /* classic long-table: a name column + a grade column */
-      if ((count.name || 0) >= 1 && (count.grade || 0) >= 1) return i;
-      /* wide-table: a name column + at least one non-synonym text column
-         whose values below are mostly numeric (subject-score columns) */
       if ((count.name || 0) >= 1) {
+        /* classic long-table: a name column + a numeric grade column */
+        if ((count.grade || 0) >= 1 && gradeColumnNumericRatio(grid, i, gradeColIdx) >= 0.5) return i;
+        /* wide-table: a name column + at least one non-synonym text column
+           whose values below are mostly numeric (subject-score columns) */
         var wide = detectWide(grid[i], grid, i);
         if (wide && wide.subjects.length >= 1) return i;
+        /* best-effort: classic header even when grades are shown as letters */
+        if ((count.grade || 0) >= 1 && gradeColIdx !== -1) return i;
       }
     }
     return -1;
@@ -166,6 +191,23 @@
   }
 
   var FOOTERS = ["average","avg","total","tot","sum","mean","max","min","final","grand total","\u0627\u0644\u0645\u062a\u0648\u0633\u0637","\u0627\u0644\u0645\u062c\u0645\u0648\u0639","\u0627\u0644\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u0643\u0644\u064a","\u0627\u0644\u0627\u062c\u0645\u0627\u0644\u064a","\u0627\u0644\u0627\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0643\u0644\u064a","\u0627\u0644\u0645\u0639\u062f\u0644","\u0627\u0644\u0645\u0639\u062f\u0644 \u0627\u0644\u0639\u0627\u0645","\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629","\u0627\u0644\u0646\u0647\u0627\u0626\u064a"];
+
+  /* Column headers that indicate the student's overall / final score (used when
+     a file contains ONLY the final degree, without per-subject grades). */
+  var FINAL_KEYS = ["final","final grade","final score","final degree","overall","overall score","result","average","avg","\u0627\u0644\u0645\u0639\u062f\u0644","\u0627\u0644\u0645\u0639\u062f\u0644 \u0627\u0644\u0639\u0627\u0645","\u0627\u0644\u0645\u062a\u0648\u0633\u0637","\u0627\u0644\u0645\u0639\u062f\u0644 \u0627\u0644\u0646\u0647\u0627\u0626\u064a","\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629","\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629","\u0627\u0644\u0646\u0647\u0627\u0626\u064a","\u0627\u0644\u0646\u062a\u064a\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629","\u0627\u0644\u0645\u062c\u0645\u0648\u0639","\u0627\u0644\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u0643\u0644\u064a","\u0627\u0644\u0627\u062c\u0645\u0627\u0644\u064a","\u0627\u0644\u0627\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0643\u0644\u064a","total","grand total","\u0645\u064a\u0632\u0627\u0646"];
+
+  function matchesFinal(normText) {
+    if (!normText) return false;
+    for (var i = 0; i < FINAL_KEYS.length; i++) {
+      var k = normCell(FINAL_KEYS[i]);
+      if (normText === k || normText.indexOf(k) !== -1) return true;
+    }
+    return false;
+  }
+
+  function finalDegreeSubjectLabel() {
+    return window.App.t("finalDegreeSubject");
+  }
 
   function isSummaryRow(grid, j) {
     var row = grid[j];
@@ -201,10 +243,8 @@
       var head = String(headerRow[c] || "").trim();
       if (!head) continue;
       if (classifyCell(head) === "grade" || classifyCell(head) === "subject") continue;
-      if (normCell(head).indexOf("total") !== -1 || normCell(head).indexOf("\u0627\u0644\u0645\u062c\u0645\u0648\u0639") !== -1 ||
-          normCell(head).indexOf("\u0645\u0639\u062f\u0644") !== -1 || normCell(head).indexOf("average") !== -1 ||
-          normCell(head).indexOf("avg") !== -1 || normCell(head).indexOf("\u062a\u0642\u062f\u064a\u0631") !== -1 ||
-          normCell(head).indexOf("grade") === 0 && classifyCell(head) === "grade") continue;
+      if (matchesFinal(normCell(head))) continue;
+      if (normCell(head).indexOf("\u062a\u0642\u062f\u064a\u0631") !== -1) continue;
       // must have mostly numeric values below (scores)
       var num = 0, nonEmpty = 0;
       for (var j = headerIdx + 1; j < grid.length; j++) {
@@ -239,21 +279,28 @@
     /* Wide-format layout takes priority when a name column exists but no
        dedicated subject+grade pair columns do. */
     /* Wide-format layout: subject names appear as header-row columns with
-       numeric scores below and one student per row. Prefer it only when the
-       header does NOT expose a dedicated grade column (i.e. a classic
-       name/subject/grade long table). */
+       numeric scores below and one student per row. Prefer it when the header
+       has no dedicated (numeric) grade column - e.g. a letter-grade "Grade"
+       column is a summary, not per-subject scores. */
     var wide = null;
-    if (headerIdx !== -1 && (!map || map.grade === -1)) {
+    if (headerIdx !== -1 && (!map || map.grade === -1 || gradeColumnNumericRatio(grid, headerIdx, map.grade) < 0.5)) {
       wide = detectWide(grid[headerIdx], grid, headerIdx);
     }
     if (wide && wide.subjects.length) {
       return buildWideEntries(grid, headerIdx, wide);
     }
 
+    /* Final-degree-only layout: a name column + one score column whose header
+       indicates the overall/final score (no per-subject grades). */
+    if (headerIdx !== -1 && map && map.name !== -1 && map.grade === -1) {
+      var fo = detectFinalOnly(grid, headerIdx, map);
+      if (fo) return buildFinalEntries(grid, fo);
+    }
+
     if (!map || map.name === -1 || map.grade === -1) {
       var fb = positionalMap(grid, start);
       if (!fb || fb.grade === -1) return [];
-      if (!map) map = { name: -1, subject: -1, grade: -1, date: -1, type: -1, semester: -1 };
+      if (!map) map = { name: -1, subject: -1, grade: -1, date: -1, type: -1, semester: -1, finalLabel: null };
       map.name = map.name !== -1 ? map.name : fb.name;
       map.subject = map.subject !== -1 ? map.subject : fb.subject;
       map.grade = map.grade !== -1 ? map.grade : fb.grade;
@@ -262,6 +309,7 @@
       map.semester = map.semester !== -1 ? map.semester : fb.semester;
     }
 
+    var defaultSubject = map.finalLabel || finalDegreeSubjectLabel();
     var entries = [];
     for (var j = start; j < grid.length; j++) {
       if (isSummaryRow(grid, j)) continue;
@@ -273,12 +321,58 @@
       if (!name) name = (window.App.currentLang === "ar" ? "\u0637\u0627\u0644\u0628" : "Student") + " " + (entries.length + 1);
       entries.push({
         name: name,
-        subject: subject || "\u2014",
+        subject: subject || defaultSubject,
         grade: gradeVal,
         date: map.date !== -1 ? grid[j][map.date] : null,
         type: map.type !== -1 ? grid[j][map.type] : null,
         semester: map.semester !== -1 ? grid[j][map.semester] : null,
       });
+    }
+    return entries;
+  }
+
+  function detectFinalOnly(grid, headerIdx, map) {
+    var nameCol = map.name;
+    var header = grid[headerIdx];
+    var numeric = [];
+    for (var c = 0; c < header.length; c++) {
+      if (c === nameCol) continue;
+      var head = String(header[c] || "").trim();
+      if (!head) continue;
+      if (classifyCell(head) === "grade" || classifyCell(head) === "subject") continue;
+      var num = 0, nonEmpty = 0;
+      for (var j = headerIdx + 1; j < grid.length; j++) {
+        if (isSummaryRow(grid, j)) continue;
+        var cell = grid[j][c];
+        if (cell === undefined || cell === null || String(cell).trim() === "") continue;
+        nonEmpty++;
+        if (parseGrade(cell) !== null) num++;
+      }
+      if (nonEmpty > 0 && num / nonEmpty >= 0.7) {
+        numeric.push({ col: c, head: head });
+      }
+    }
+    if (!numeric.length) return null;
+    var finalCol = null, finalLabel = null;
+    numeric.forEach(function (nc) {
+      if (finalCol === null && matchesFinal(normCell(nc.head))) { finalCol = nc.col; finalLabel = nc.head; }
+    });
+    if (finalCol === null) {
+      if (numeric.length === 1) { finalCol = numeric[0].col; finalLabel = numeric[0].head; }
+      else return null;
+    }
+    return { headerIdx: headerIdx, name: nameCol, final: finalCol, finalLabel: finalLabel || finalDegreeSubjectLabel() };
+  }
+
+  function buildFinalEntries(grid, fo) {
+    var entries = [];
+    for (var j = fo.headerIdx + 1; j < grid.length; j++) {
+      if (isSummaryRow(grid, j)) continue;
+      var name = String(grid[j][fo.name] || "").trim();
+      if (!name) continue;
+      var gv = parseGrade(grid[j][fo.final]);
+      if (gv === null) continue;
+      entries.push({ name: name, subject: fo.finalLabel, grade: gv, date: null, type: null, semester: null });
     }
     return entries;
   }
@@ -309,7 +403,8 @@
       if (Array.isArray(parsed)) {
         entries = parsed.map(function (i) {
           var g = parseGrade(i.grade !== undefined ? i.grade : i["\u0627\u0644\u062f\u0631\u062c\u0629"]);
-          return { name: String(i.name || i["\u0627\u0633\u0645"] || ""), subject: String(i.subject || i["\u0627\u0644\u0645\u0627\u062f\u0629"] || ""), grade: g === null ? 0 : g, date: i.date || null, type: i.type || "exam", semester: i.semester || null };
+          var subj = String(i.subject || i["\u0627\u0644\u0645\u0627\u062f\u0629"] || "");
+          return { name: String(i.name || i["\u0627\u0633\u0645"] || ""), subject: subj || finalDegreeSubjectLabel(), grade: g === null ? 0 : g, date: i.date || null, type: i.type || "exam", semester: i.semester || null };
         });
         entries = entries.filter(function (e) { return e.name || e.subject; });
       } else {

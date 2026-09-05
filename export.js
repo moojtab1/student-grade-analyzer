@@ -3,40 +3,86 @@
 
   var App = window.App;
 
+  /* Move an element off-screen and make it renderable so html2canvas can
+     capture it even when it normally sits inside a hidden section (charts
+     are painted on real canvases, so they survive the move). */
+  function setOffscreen(el) {
+    var hadHidden = el.classList.contains("hidden");
+    var hadActive = el.classList.contains("active");
+    var prevStyle = el.getAttribute("style") || "";
+    el.classList.remove("hidden");
+    el.classList.add("active");
+    el.style.position = "absolute";
+    el.style.left = "-10000px";
+    el.style.top = "0";
+    el.style.width = "1400px";
+    el.style.zIndex = "-1";
+    el.style.display = "block";
+    void el.offsetHeight;
+    return function restore() {
+      if (hadHidden) el.classList.add("hidden");
+      if (!hadActive) el.classList.remove("active");
+      if (prevStyle) el.setAttribute("style", prevStyle); else el.removeAttribute("style");
+    };
+  }
+
+  /* If the dashboard charts were last drawn while their section was hidden,
+     Chart.js gives them zero-sized canvases. Redraw them while visible. */
+  function ensureDashboardCharts() {
+    var el = document.getElementById("page-dashboard");
+    if (!el) return;
+    var canvases = el.querySelectorAll("canvas");
+    var zero = Array.prototype.some.call(canvases, function (cv) {
+      return cv.width === 0 || cv.height === 0;
+    });
+    if (zero && window.App.renderDashboardCharts) window.App.renderDashboardCharts();
+  }
+
   function exportPNG() {
-    var targets = document.querySelectorAll("#page-dashboard canvas");
-    if (!targets.length) { alert("No charts to export"); return; }
-    targets.forEach(function (canvas, i) {
+    var el = document.getElementById("page-dashboard");
+    if (!el) return;
+    var restore = setOffscreen(el);
+    ensureDashboardCharts();
+    var canvases = el.querySelectorAll("canvas");
+    if (!canvases.length) { restore(); alert("No charts to export"); return; }
+    for (var i = 0; i < canvases.length; i++) {
       var link = document.createElement("a");
       link.download = "chart-" + (i + 1) + ".png";
-      link.href = canvas.toDataURL("image/png");
+      link.href = canvases[i].toDataURL("image/png");
       link.click();
-    });
+    }
+    restore();
   }
 
   function exportPDF() {
-    var area = document.querySelector(".page-section.active") || document.getElementById("page-dashboard");
-    if (typeof html2canvas === "undefined" || typeof jspdf === "undefined") { alert("Export libs not loaded"); return; }
-    if (typeof jspdf.jsPDF === "undefined") { alert("jsPDF not loaded"); return; }
-    html2canvas(area, { scale: 2, backgroundColor: "#ffffff" }).then(function (canvas) {
+    if (typeof html2canvas === "undefined" || typeof jspdf === "undefined" || typeof jspdf.jsPDF === "undefined") {
+      alert("Export libs not loaded");
+      return;
+    }
+    var el = document.getElementById("page-dashboard");
+    var restore = setOffscreen(el);
+    ensureDashboardCharts();
+    void el.offsetHeight;
+    html2canvas(el, { scale: 2, backgroundColor: "#ffffff", windowWidth: 1400 }).then(function (canvas) {
+      restore();
       var img = canvas.toDataURL("image/png");
       var pdf = new jspdf.jsPDF("p", "mm", "a4");
       var w = pdf.internal.pageSize.getWidth();
       var h = (canvas.height / canvas.width) * w;
       pdf.addImage(img, "PNG", 0, 0, w, h);
       pdf.save("grade-analysis.pdf");
-    });
+    }).catch(function () { restore(); });
   }
 
   function exportPPTX() {
     if (typeof PptxGenJS === "undefined") { alert("PptxGenJS not loaded"); return; }
+    var el = document.getElementById("page-dashboard");
+    var restore = el ? setOffscreen(el) : function () {};
+    ensureDashboardCharts();
+
     var pptx = new PptxGenJS();
     pptx.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 });
     pptx.layout = "LAYOUT_WIDE";
-
-    var slides = { title: 0, stats: 0, charts: 0, export: 0 };
-    var l = 0.5, t = 0.8, w = 6, h = 5;
-    var chartNodes = [];
 
     function addSlideLabel(slide, text, y, size) {
       slide.addText(text, { x: 0.5, y: y || 0.3, w: 12, h: 0.5, fontSize: size || 22, bold: true, color: "10B981" });
@@ -67,37 +113,18 @@
     var full = [["Student", "Subject", "Grade", "Date", "Type"]].concat(dataRows);
     s3.addTable(full, { x: 0.4, y: 1.2, w: 12.5, fontSize: 9, border: { pt: 1, color: "E5E7EB" }, fill: { color: "F9FAFB" }, valign: "middle" });
 
-    // Slide 4: Charts as images
+    // Slide 4: Charts as images (canvas.toDataURL directly - no html2canvas)
     var s4 = pptx.addSlide();
     addSlideLabel(s4, "Visual Analytics");
-
-    function exportPPTChartImage(canvas) {
-      return new Promise(function (resolve) {
-        if (typeof html2canvas === "undefined") {
-          var img = document.createElement("img");
-          img.src = canvas.toDataURL("image/png");
-          resolve({ data: img.src, w: 6.2, h: 3 });
-          return;
-        }
-        html2canvas(canvas.parentElement, { backgroundColor: "#ffffff", scale: 2 }).then(function (c) {
-          resolve({ data: c.toDataURL("image/png"), w: 6.2, h: 3 });
-        });
-      });
-    }
-
-    var canvases = document.querySelectorAll("#page-dashboard canvas");
-    var idx = 0;
-    var chartPromises = Array.prototype.slice.call(canvases).map(function (cv) {
-      return exportPPTChartImage(cv).then(function (imgData) {
-        var col = (idx % 2), row = Math.floor(idx / 2);
-        s4.addImage({ data: imgData.data, x: 0.3 + col * 6.5, y: 1 + row * 3.1, w: imgData.w, h: imgData.h });
-        idx++;
-      });
+    var canvases = el ? el.querySelectorAll("canvas") : [];
+    var wImg = 6.2, hImg = 3;
+    Array.prototype.slice.call(canvases).forEach(function (cv, idx) {
+      var col = (idx % 2), row = Math.floor(idx / 2);
+      s4.addImage({ data: cv.toDataURL("image/png"), x: 0.3 + col * 6.5, y: 1 + row * 3.1, w: wImg, h: hImg });
     });
 
-    Promise.all(chartPromises).then(function () {
-      pptx.writeFile({ fileName: "grade-analysis.pptx" });
-    });
+    pptx.writeFile({ fileName: "grade-analysis.pptx" });
+    restore();
   }
 
   window.Exp = {

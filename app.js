@@ -68,6 +68,8 @@
       finalMatrixTitle: "Final Degree per Student (Multi-Subject)",
       finalMatrixHint: "Each cell shows a subject's final grade (average of all scores). The Final Degree column is the student's overall average across all subjects.",
       finalDegree: "Final Degree", refresh: "Refresh",
+      finalDegreeSubject: "Final Degree",
+      rptSubjectAvg: "Subject Averages", rptTrend: "Grade Trend", rptDiagrams: "Diagrams",
     },
     ar: {
       privacyBadge: "\u0661\u0660\u0660\u066a \u062e\u0635\u0648\u0635\u064a - \u0627\u0644\u0645\u0639\u0627\u0644\u062c\u0629 \u0645\u062d\u0644\u064a\u0627\u064b \u0639\u0644\u0649 \u062c\u0647\u0627\u0632\u0643",
@@ -128,6 +130,8 @@
       finalMatrixTitle: "\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629 \u0644\u0643\u0644 \u0637\u0627\u0644\u0628 (\u0639\u0628\u0631 \u0627\u0644\u0645\u0648\u0627\u062f)",
       finalMatrixHint: "\u0643\u0644 \u062e\u0644\u064a\u0629 \u062a\u0639\u0631\u0636 \u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629 \u0644\u0645\u0627\u062f\u0629 (\u0645\u062a\u0648\u0633\u0637 \u062c\u0645\u064a\u0639 \u0627\u0644\u062f\u0631\u062c\u0627\u062a). \u0639\u0645\u0648\u062f \u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629 \u064a\u0645\u062b\u0644 \u0627\u0644\u0645\u062a\u0648\u0633\u0637 \u0627\u0644\u0639\u0627\u0645 \u0644\u0644\u0637\u0627\u0644\u0628 \u0639\u0628\u0631 \u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0648\u0627\u062f.",
       finalDegree: "\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629", refresh: "\u062a\u062d\u062f\u064a\u062b",
+      finalDegreeSubject: "\u0627\u0644\u062f\u0631\u062c\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064a\u0629",
+      rptSubjectAvg: "\u0645\u062a\u0648\u0633\u0637 \u0627\u0644\u062f\u0631\u062c\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0645\u0627\u062f\u0629", rptTrend: "\u0627\u062a\u062c\u0627\u0647 \u0627\u0644\u062f\u0631\u062c\u0627\u062a", rptDiagrams: "\u0627\u0644\u0631\u0633\u0648\u0645 \u0627\u0644\u0628\u064a\u0627\u0646\u064a\u0629",
     },
   };
 
@@ -231,6 +235,7 @@
   }
 
   /* ============ Global hooks ============ */
+  window.App.renderDashboardCharts = renderDashboardCharts;
   window.App.refreshDashboard = function () {
     if (window.Ana) {
       window.Ana.renderAll();
